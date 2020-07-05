@@ -9,9 +9,9 @@ import random
 import re
 import time
 from xml.etree import ElementTree
+from pkg_resources import DistributionNotFound, get_distribution, parse_version
 
 import requests
-from pkg_resources import DistributionNotFound, get_distribution, parse_version
 
 try:
     from kazoo.client import KazooClient, KazooState
@@ -58,7 +58,7 @@ except NameError:
     # Python 3.X
     unicode_char = chr
     # Ugh.
-    long = int  # NOQA: A001
+    long = int
 
 
 __author__ = 'Daniel Lindsley, Joseph Kocherhans, Jacob Kaplan-Moss, Thomas Rieder'
@@ -72,14 +72,11 @@ except DistributionNotFound:
     __version__ = '0.0.dev0'
     version_info = parse_version(__version__)
 
-
 def get_version():
     return __version__
 
 
-DATETIME_REGEX = re.compile(
-    r'^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})(\.\d+)?Z$'  # NOQA: E501
-)
+DATETIME_REGEX = re.compile('^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})(\.\d+)?Z$')
 # dict key used to add nested documents to a document
 NESTED_DOC_KEY = '_childDocuments_'
 
@@ -127,8 +124,8 @@ def force_unicode(value):
         # Python 2.X
         if isinstance(value, str):
             value = value.decode('utf-8', 'replace')
-        elif not isinstance(value, basestring):  # NOQA: F821
-            value = unicode(value)  # NOQA: F821
+        elif not isinstance(value, basestring):
+            value = unicode(value)
 
     return value
 
@@ -141,7 +138,7 @@ def force_bytes(value):
         if isinstance(value, str):
             value = value.encode('utf-8', 'backslashreplace')
     else:
-        if isinstance(value, unicode):  # NOQA: F821
+        if isinstance(value, unicode):
             value = value.encode('utf-8')
 
     return value
@@ -174,7 +171,7 @@ def unescape_html(text):
             except KeyError:
                 pass
         return text  # leave as is
-    return re.sub(r"&#?\w+;", fixup, text)
+    return re.sub("&#?\w+;", fixup, text)
 
 
 def safe_urlencode(params, doseq=0):
@@ -190,7 +187,7 @@ def safe_urlencode(params, doseq=0):
     if hasattr(params, "items"):
         params = params.items()
 
-    new_params = []
+    new_params = list()
 
     for k, v in params:
         k = k.encode("utf-8")
@@ -217,7 +214,7 @@ def is_valid_xml_char_ordinal(i):
         or i in (0x9, 0xA, 0xD)
         or 0xE000 <= i <= 0xFFFD
         or 0x10000 <= i <= 0x10FFFF
-    )
+        )
 
 
 def clean_xml_string(s):
@@ -374,7 +371,7 @@ class Solr(object):
 
         try:
             requests_method = getattr(session, method)
-        except AttributeError:
+        except AttributeError as err:
             raise SolrError("Unable to use unknown HTTP method '{0}.".format(method))
 
         # Everything except the body can be Unicode. The body must be
@@ -453,9 +450,9 @@ class Solr(object):
         return self._select(params, handler)
 
     def _update(self, message, clean_ctrl_chars=True, commit=None, softCommit=False, waitFlush=None, waitSearcher=None,
-                overwrite=None, handler='update', solrapi='XML'):
+                overwrite=None, handler='update', deleteVersion=None ):
         """
-        Posts the given xml or json message to http://<self.url>/update and
+        Posts the given xml message to http://<self.url>/update and
         returns the result.
 
         Passing `clean_ctrl_chars` as False will prevent the message from being cleaned
@@ -492,6 +489,8 @@ class Solr(object):
 
         if waitSearcher is not None:
             query_vars.append('waitSearcher=%s' % str(bool(waitSearcher)).lower())
+        if deleteVersion is not None:
+            query_vars.append('%s' % str(deleteVersion))
 
         if query_vars:
             path = '%s?%s' % (path, '&'.join(query_vars))
@@ -500,12 +499,7 @@ class Solr(object):
         if clean_ctrl_chars:
             message = sanitize(message)
 
-        if solrapi == 'XML':
-            return self._send_request('post', path, message, {'Content-type': 'text/xml; charset=utf-8'})
-        elif solrapi == 'JSON':
-            return self._send_request('post', path, message, {'Content-type': 'application/json; charset=utf-8'})
-        else:
-            raise ValueError("unknown solrapi {}".format(solrapi))
+        return self._send_request('post', path, message, {'Content-type': 'text/xml; charset=utf-8'})
 
     def _extract_error(self, resp):
         """
@@ -636,11 +630,11 @@ class Solr(object):
             if IS_PY3:
                 # Python 3.X
                 if isinstance(value, bytes):
-                    value = str(value, errors='replace')  # NOQA: F821
+                    value = str(value, errors='replace')
             else:
                 # Python 2.X
                 if isinstance(value, str):
-                    value = unicode(value, errors='replace')   # NOQA: F821
+                    value = unicode(value, errors='replace')
 
             value = "{0}".format(value)
 
@@ -673,7 +667,7 @@ class Solr(object):
             if isinstance(value, str):
                 value = force_unicode(value)
 
-            if isinstance(value, basestring):  # NOQA: F821
+            if isinstance(value, basestring):
                 is_string = True
 
         if is_string:
@@ -685,12 +679,7 @@ class Solr(object):
                 for dk, dv in date_values.items():
                     date_values[dk] = int(dv)
 
-                return datetime.datetime(date_values['year'],
-                                         date_values['month'],
-                                         date_values['day'],
-                                         date_values['hour'],
-                                         date_values['minute'],
-                                         date_values['second'])
+                return datetime.datetime(date_values['year'], date_values['month'], date_values['day'], date_values['hour'], date_values['minute'], date_values['second'])
 
         try:
             # This is slightly gross but it's hard to tell otherwise what the
@@ -718,7 +707,7 @@ class Solr(object):
                 return True
         else:
             # Python 2.X
-            if isinstance(value, basestring) and len(value) == 0:  # NOQA: F821
+            if isinstance(value, basestring) and len(value) == 0:
                 return True
 
         # TODO: This should probably be removed when solved in core Solr level?
@@ -819,7 +808,7 @@ class Solr(object):
             terms = dict(zip(terms[0::2], terms[1::2]))
 
         for field, values in terms.items():
-            tmp = []
+            tmp = list()
 
             while values:
                 tmp.append((values.pop(0), values.pop(0)))
@@ -911,44 +900,26 @@ class Solr(object):
         """
         start_time = time.time()
         self.log.debug("Starting to build add request...")
-        solrapi = 'XML'
-        # if no commands (no boost, no atomic updates) needed use json multidocument api
-        #   The JSON API skipts the XML conversion and speedup load from 15 to 20 times.
-        #   CPU Usage is drastically lower.
-        if boost is None and fieldUpdates is None:    
-            solrapi = 'JSON'
-            message = docs
-            # single doc convert to array of docs 
-            if isinstance(message, dict):
-                # convert dict to list
-                message = [message]
-                # json array of docs 
-            if isinstance(message, list):
-                # convert to string
-                m = json.dumps(message).encode('utf-8') 
-            else:
-                raise ValueError("wrong message type")
-        else:
-            message = ElementTree.Element('add')
+        message = ElementTree.Element('add')
 
-            if commitWithin:
-                message.set('commitWithin', commitWithin)
+        if commitWithin:
+            message.set('commitWithin', commitWithin)
 
-            for doc in docs:
-                el = self._build_doc(doc, boost=boost, fieldUpdates=fieldUpdates)
-                message.append(el)
+        for doc in docs:
+            el = self._build_doc(doc, boost=boost, fieldUpdates=fieldUpdates)
+            message.append(el)
 
-            # This returns a bytestring. Ugh.
-            m = ElementTree.tostring(message, encoding='utf-8')
-            # Convert back to Unicode please.
-            m = force_unicode(m)
+        # This returns a bytestring. Ugh.
+        m = ElementTree.tostring(message, encoding='utf-8')
+        # Convert back to Unicode please.
+        m = force_unicode(m)
 
         end_time = time.time()
         self.log.debug("Built add request of %s docs in %0.2f seconds.", len(message), end_time - start_time)
         return self._update(m, commit=commit, softCommit=softCommit, waitFlush=waitFlush, waitSearcher=waitSearcher,
-                            overwrite=overwrite, handler=handler, solrapi=solrapi)
+                            overwrite=overwrite, handler=handler)
 
-    def delete(self, id=None, q=None, commit=None, softCommit=False, waitFlush=None, waitSearcher=None, handler='update'):  # NOQA: A002
+    def delete(self, id=None, q=None, commit=None, softCommit=False, waitFlush=None, waitSearcher=None, handler='update',deleteVersion=None):
         """
         Deletes documents.
 
@@ -978,17 +949,17 @@ class Solr(object):
             raise ValueError('You many only specify "id" OR "q", not both.')
         elif id is not None:
             if not isinstance(id, (list, set, tuple)):
-                doc_id = [id]
+                id = [id]
             else:
-                doc_id = list(filter(None, id))
-            if doc_id:
-                m = '<delete>%s</delete>' % ''.join('<id>%s</id>' % i for i in doc_id)
+                id = list(filter(None, id))
+            if id:
+                m = '<delete>%s</delete>' % ''.join('<id>%s</id>' % i for i in id)
             else:
                 raise ValueError('The list of documents to delete was empty.')
         elif q is not None:
             m = '<delete><query>%s</query></delete>' % q
 
-        return self._update(m, commit=commit, softCommit=softCommit, waitFlush=waitFlush, waitSearcher=waitSearcher, handler=handler)
+        return self._update(m, commit=commit, softCommit=softCommit, waitFlush=waitFlush, waitSearcher=waitSearcher, handler=handler, deleteVersion=deleteVersion)
 
     def commit(self, softCommit=False, waitFlush=None, waitSearcher=None, expungeDeletes=None, handler='update'):
         """
@@ -1012,8 +983,7 @@ class Solr(object):
         else:
             msg = '<commit />'
 
-        return self._update(msg, commit=not softCommit, softCommit=softCommit, waitFlush=waitFlush, waitSearcher=waitSearcher,
-                            handler=handler)
+        return self._update(msg, commit=not softCommit, softCommit=softCommit, waitFlush=waitFlush, waitSearcher=waitSearcher, handler=handler)
 
     def optimize(self, commit=True, waitFlush=None, waitSearcher=None, maxSegments=None, handler='update'):
         """
@@ -1078,14 +1048,16 @@ class Solr(object):
             resp = self._send_request('post', handler,
                                       body=params,
                                       files={'file': (filename, file_obj)})
-        except (IOError, SolrError):
-            self.log.exception("Failed to extract document metadata")
+        except (IOError, SolrError) as err:
+            self.log.error("Failed to extract document metadata: %s", err,
+                           exc_info=True)
             raise
 
         try:
             data = json.loads(resp)
-        except ValueError:
-            self.log.exception("Failed to load JSON response")
+        except ValueError as err:
+            self.log.error("Failed to load JSON response: %s", err,
+                           exc_info=True)
             raise
 
         data['contents'] = data.pop(filename, None)
@@ -1100,30 +1072,6 @@ class Solr(object):
                 metadata[raw_metadata.pop()] = raw_metadata.pop()
 
         return data
-
-    def ping(self, handler='admin/ping', **kwargs):
-        """
-        Sends a ping request.
-
-        Usage::
-
-            solr.ping()
-
-        """
-        params = kwargs
-        params_encoded = safe_urlencode(params, True)
-
-        if len(params_encoded) < 1024:
-            # Typical case.
-            path = '%s/?%s' % (handler, params_encoded)
-            return self._send_request('get', path)
-        else:
-            # Handles very long queries by submitting as a POST.
-            path = '%s/' % handler
-            headers = {
-                'Content-type': 'application/x-www-form-urlencoded; charset=utf-8',
-            }
-            return self._send_request('post', path, body=params_encoded, headers=headers)
 
 
 class SolrCoreAdmin(object):
@@ -1145,7 +1093,6 @@ class SolrCoreAdmin(object):
        7. UNLOAD
        8. LOAD (not currently implemented)
     """
-
     def __init__(self, url, *args, **kwargs):
         super(SolrCoreAdmin, self).__init__(*args, **kwargs)
         self.url = url
@@ -1181,7 +1128,7 @@ class SolrCoreAdmin(object):
 
         return self._get_url(self.url, params=params)
 
-    def reload(self, core):  # NOQA: A003
+    def reload(self, core):
         """http://wiki.apache.org/solr/CoreAdmin#head-3f125034c6a64611779442539812067b8b430930"""
         params = {
             'action': 'RELOAD',
@@ -1271,7 +1218,7 @@ class SolrCloud(Solr):
         self.auth = auth
         self.verify = verify
 
-        super(SolrCloud, self).__init__(url, decoder=decoder, timeout=timeout, auth=self.auth, verify=self.verify,
+        super(SolrCloud, self).__init__(url, decoder=decoder, timeout=timeout, auth=self.auth, verify = self.verify,
                                         *args, **kwargs)
 
         self.zookeeper = zookeeper
